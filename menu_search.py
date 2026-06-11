@@ -5,6 +5,7 @@
 
 from dotenv import load_dotenv
 from pypdf import PdfReader
+from tabulate import tabulate
 import re
 import os, sys
 import json
@@ -44,6 +45,77 @@ def check_price(food_item):
             if (food == food_item):
                 return int(item[food])
     return 0
+
+def print_final_bill():
+    print("\033[H\033[J", end="")
+    print("Here is your total bill from the function! ")
+    bill_total = 0
+    table_rows = []
+    for order in order_list:
+        table_rows.append([
+            order["food_item"],
+            order["quantity"],
+            order["bill"],
+        ])
+        bill_total += order["bill"]
+
+    #print(table_rows)
+    headers = ["Food Item", "Quantity", "Bill"]
+    print(tabulate(table_rows, headers=headers, tablefmt="grid"))
+    print(f"Your total order is {bill_total}")
+    print(" \n \n")
+
+def done_ordering():
+    print("Thank you for ordering with us today. bon apetitie! ")
+    sys.exit()
+
+
+def cancel_everything():
+    order_list.clear()
+    print("I have successfully cleared all your order list")
+    return
+
+
+def cancel_order(food_item):
+    bool = False
+    for food in order_list:
+        if(food["food_item"]==food_item):
+            bool = True
+    if bool:
+        order_list[:] = [
+            order for order in order_list
+            if order["food_item"] != food_item
+            ]
+        print(f"The order for {food_item} has been successfully cancelled" )
+        return
+    else:
+        print("Please place your order first before you can cancel the order")
+        return
+
+
+def add_order(food_item, quantity = 1):
+    food_item = food_item.strip().lower()
+
+    for food in order_list:
+        if (food["food_item"].strip().lower() == food_item):
+            food["quantity"] += quantity
+            food["bill"] = food["quantity"] * check_price(food_item)
+            print("Your order has been updated")
+            return
+    print("Please place the order first before updating")
+    return
+
+def update_order(food_item, quantity = 1):
+    food_item = food_item.strip().lower()
+
+    for food in order_list:
+        if (food["food_item"].strip().lower() == food_item):
+            food["quantity"] = quantity
+            food["bill"] = food["quantity"] * check_price(food_item)
+            print("Your order has been updated")
+            return
+    print("Please place the order first before updating")
+    return
 
 
 def take_order(food_item, quantity = 1):
@@ -94,29 +166,136 @@ available_tools = [
                 "required":["food_item","quantity","order_list"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":"update_order",
+            "description":"This function is used to update the order of the user.",
+            "parameters":
+            {
+                "type":"object",
+                "properties":
+                {
+                    "food_item":{
+                        "type":"string",
+                        "description":"This field contains the name of the food item that the user wants to"
+                        "update the order for"
+                    },
+                    "quantity":{
+                        "type":"integer",
+                        "description":"This is the updated quantity of the food item that the user wants to order"
+                },
+            },
+            "required":["food_item", "quantity"]
+        }
+    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":"add_order",
+            "description":"This function is used to add more items to the user's already existing order.",
+            "parameters":
+            {
+                "type":"object",
+                "properties":
+                {
+                    "food_item":{
+                        "type":"string",
+                        "description":"This field contains the name of the food item that the user wants to"
+                        "update the order for"
+                    },
+                    "quantity":{
+                        "type":"integer",
+                        "description":"This is the extra quantity of the food item that the user wants to order"
+                },
+            },
+            "required":["food_item", "quantity"]
+        }
+    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":"cancel_order",
+            "description":"This function is used to cancel the order for a particular food item by the user. It takes "
+            "as input the name of the food item if the food item exists and deletes it from the order list.",
+            "parameters":
+            {
+                "type":"object",
+                "properties":
+                {
+                    "food_item":{
+                        "type":"string",
+                        "description":"This field contains the name of the food item that the user wants to"
+                        "update the order for"
+                    },
+                
+            },
+            "required":["food_item"]
+        }
+    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":"cancel_everything",
+            "description":"This function is used to cancel all the orders for the user.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            }
+    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":"print_final_bill",
+            "description":"This function is used to print the final bill. Once the user has decided that they "
+            "are done ordering and that they do not want to order any more food item, "
+            "or they want to checkout,  we will print the final "
+            "bill for the user and break out the program",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            }
+    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":"done_ordering",
+            "description":"This function is used to break out of the code, when the user is done with their"
+            "order",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            }
+    }
     }
 ]
 
 
 def main():
     "this is the main function"
-    print("Hello there! What can I order for you today ?")
     show_menu()
+    print("Order bolo Order Order oooooorrrrrdddddeeeeerrrrrrrrrrrrrrrrrrrr")
+    
     user_input = input()
     i = 0
-    
-    while(user_input):
-        "continue with the function"
-
-        message = [
+    message = [
         {"role":"system","content":"You are a order taking agent. Your job is to ask the user what they want "
         "to order and based on that you need to place their order and show what their total bill is.  The"
         "user might also order 2 or more items of the same kind. So take care of that as well. Use all the tools"
         "that you have been provided access to. If the user does not mention how many quantities of the food item they want,"
-        "assume by default that they want 1 quantity of the food item."},
+        "assume by default that they want 1 quantity of the food item. "},
         {"role":"user","content": user_input.lower()}
         ]
-
+    
+    value = True
+    while(value):
+        "continue with the function"
     
         response = Client.chat.completions.create(
             model= "gpt-4o",
@@ -128,26 +307,55 @@ def main():
         temp_message = response.choices[0].message
         message.append(response.choices[0].message)
 
+        if(temp_message.tool_calls):
+            for i in range(len(temp_message.tool_calls)):
+                tool_call = temp_message.tool_calls[i]
+                call_id = tool_call.id
+                function_name = tool_call.function.name
+                function_args = json.loads(tool_call.function.arguments)
 
-        for i in range(len(temp_message.tool_calls)):
-            tool_call = temp_message.tool_calls[i]
-            call_id = tool_call.id
-            function_name = tool_call.function.name
-            function_args = json.loads(tool_call.function.arguments)
+                print(f"Calling the function. {function_name}")
 
-            if function_name == "take_order":
-                function_response = take_order(
-                    food_item=function_args.get("food_item"),
-                    quantity= function_args.get("quantity")
+                if function_name == "take_order":
+                    function_response = take_order(
+                        food_item=function_args.get("food_item"),
+                        quantity= function_args.get("quantity")
+                    )
+                
+                if function_name == "cancel_everything":
+                    function_response = cancel_everything()
+                
+                if function_name == "cancel_order":
+                    function_response = cancel_order(
+                        food_item= function_args.get("food_item")
+                    )
+                
+                if function_name == "update_order":
+                    function_response = update_order(
+                        food_item= function_args.get("food_item"),
+                        quantity= function_args.get("quantity")
+                    )
+
+                if function_name == "add_order":
+                    function_response = add_order(
+                        food_item= function_args.get("food_item"),
+                        quantity= function_args.get("quantity")
+                    )
+                
+                if function_name == "print_final_bill":
+                    function_response = print_final_bill()
+                
+                if function_name == "done_ordering":
+                    function_response = done_ordering()
+
+
+                message.append({
+                    "role":"tool",
+                    "tool_call_id": call_id,
+                    "name": function_name,
+                    "content": json.dumps(function_response)
+                }
                 )
-
-            message.append({
-                "role":"tool",
-                "tool_call_id": call_id,
-                "name": function_name,
-                "content": json.dumps(function_response)
-            }
-            )
 
         response = Client.chat.completions.create(
             model = "gpt-4o",
@@ -157,23 +365,18 @@ def main():
             
         temp_message = response.choices[0].message.content
 
-        print(" Would you like to order anything else? Y/N")
-        temp_input = input()
+        print(temp_message)
+        #print("Printed your message")
+        user_input = input()
+        #print(f"Your input text is {user_input}")
 
-        if(temp_input.lower() == "y"):
-            print("Please state your order ")
-            user_input = input()
-        else:
-            user_input = None
+        message.append(
+            {
+                "role":"user",
+                "content":user_input
+            }
+        )
     
-    print("\033[H\033[J", end="")
-    print("Here is your total bill ! ")
-
-    for order in order_list:
-        print(f"{order["food_item"]}...........{order["quantity"]}........{order["bill"]}")
-
-    print(" \n \n")
-
 
 if __name__ == "__main__":
     main()
