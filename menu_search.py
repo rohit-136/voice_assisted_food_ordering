@@ -49,10 +49,10 @@ def check_item(food_item):
     else:
         return 0
 
-def get_price(food_item):
+def get_price(food_item, quantity = 1):
     print(f"getting the price of {food_item}")
     if(check_item(food_item)):
-        return(price_lookup[food_item])
+        return(price_lookup[food_item]*quantity)
     else:
         return("The ordered food item does not exist")
 
@@ -105,15 +105,12 @@ def cancel_order(food_item):
 
 def add_order(food_item, quantity = 1):
     food_item = food_item.strip().lower()
-
     for food in order_list:
-        if (food["food_item"].strip().lower() == food_item):
+        if food["food_item"] == food_item:
             food["quantity"] += quantity
-            food["bill"] = food["quantity"] * get_price(food_item)
-            return("Your order has been updated")
-        else:
-            take_order(food_item, quantity)
-    return
+            food["bill"] = get_price(food_item, quantity)
+            return "Your order has been updated"
+    return take_order(food_item, quantity)
 
 
 def take_order(food_item, quantity = 1):
@@ -225,9 +222,13 @@ available_tools = [
                         "description":"This field contains the name of the food item that the user wants to"
                         "update the order for"
                     },
+                    "quantity":{
+                        "type":"integer",
+                        "description":"This is the extra quantity of the food item that the user wants to order"
+                },
                 
             },
-            "required":["food_item"]
+            "required":["food_item", "quantity"]
         }
     }
     },
@@ -304,8 +305,11 @@ available_tools = [
 
 
 class menu_data(BaseModel):
-    item_name: str = Field(description="The name of each food item in the menu provided")
+    name: str = Field(description="The name of each food item in the menu provided")
     price: float = Field(description="The price of each food item in the corresponding menu")
+
+class MenuResponse(BaseModel):
+    items: list[menu_data]
 
 def pdf_to_png(path):
     doc = fitz.open(path)
@@ -362,9 +366,9 @@ def main():
 
     images = pdf_to_png(path)
     menu_list = extract_menu_from_images(images)
-    menu_list = json.loads(menu_list)
-    #print(menu_list)
-    ready_menu(menu_list)
+    menu_list = MenuResponse.model_validate_json(menu_list)  # validates structure
+    
+    ready_menu(menu_list.model_dump())
 
     print(table_rows)
     print("**************************")
@@ -432,7 +436,8 @@ def main():
                 
                 if function_name == "get_price":
                     function_response = get_price(
-                        food_item= function_args.get("food_item")
+                        food_item= function_args.get("food_item"),
+                        quantity= function_args.get("quantity")
                     )
                 
                 if function_name == "check_item":
